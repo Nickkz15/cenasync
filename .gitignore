@@ -1,0 +1,10 @@
+node_modules/
+client/dist/
+client/.env
+server/.env
+server/storage/*.sqlite
+server/storage/*.sqlite-shm
+server/storage/*.sqlite-wal
+server/storage/uploads/*
+!server/storage/uploads/.gitkeep
+.DS_Store
