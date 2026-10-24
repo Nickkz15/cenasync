@@ -86,8 +86,37 @@ CREATE TABLE IF NOT EXISTS favorites (
 );
 CREATE TABLE IF NOT EXISTS exports (
  id INTEGER PRIMARY KEY AUTOINCREMENT, scene_id INTEGER NOT NULL REFERENCES scenes(id) ON DELETE CASCADE,
- user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, status TEXT NOT NULL DEFAULT 'queued',
- file_path TEXT, error TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, finished_at TEXT
+ user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, room_id INTEGER REFERENCES rooms(id) ON DELETE SET NULL,
+ status TEXT NOT NULL DEFAULT 'queued', file_path TEXT, error TEXT NOT NULL DEFAULT '',
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, finished_at TEXT
+);
+CREATE TABLE IF NOT EXISTS editor_access_attempts (
+ user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, ip TEXT NOT NULL,
+ failures INTEGER NOT NULL DEFAULT 0, window_started INTEGER NOT NULL DEFAULT 0, blocked_until INTEGER NOT NULL DEFAULT 0,
+ PRIMARY KEY(user_id, ip)
+);
+CREATE TABLE IF NOT EXISTS editor_ip_attempts (
+ ip TEXT PRIMARY KEY, failures INTEGER NOT NULL DEFAULT 0, window_started INTEGER NOT NULL DEFAULT 0, blocked_until INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS room_messages (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+ user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, message TEXT NOT NULL,
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS room_invites (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+ sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ recipient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','declined','cancelled')),
+ created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_room_invites_pending ON room_invites(room_id,recipient_id) WHERE status='pending';
+CREATE TABLE IF NOT EXISTS room_progress (
+ room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ line_id INTEGER REFERENCES lines(id) ON DELETE SET NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(room_id,user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_scenes_owner ON scenes(owner_id);
 CREATE INDEX IF NOT EXISTS idx_scene_versions_scene ON scene_versions(scene_id, version_number DESC);
@@ -95,7 +124,9 @@ CREATE INDEX IF NOT EXISTS idx_lines_scene ON lines(scene_id, sort_order, start_
 CREATE INDEX IF NOT EXISTS idx_recordings_line ON recordings(line_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read, created_at);
 `);
-// Lightweight migration for installations created before trim controls existed.
+// Lightweight migrations for databases created by earlier CenaSync builds.
 try { db.exec('ALTER TABLE scenes ADD COLUMN clip_start REAL NOT NULL DEFAULT 0'); } catch {}
 try { db.exec('ALTER TABLE scenes ADD COLUMN clip_end REAL NOT NULL DEFAULT 0'); } catch {}
+try { db.exec('ALTER TABLE room_participants ADD COLUMN finished_at TEXT'); } catch {}
+try { db.exec('ALTER TABLE exports ADD COLUMN room_id INTEGER REFERENCES rooms(id) ON DELETE SET NULL'); } catch {}
 export { db, storage };
